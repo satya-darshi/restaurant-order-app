@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Restaurant Menu</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        let menuItems = [];
+
+        function fetchMenu() {
+            fetch('http://localhost:3000/menu-items/customer')
+                .then(response => response.json())
+                .then(menu => {
+                    menuItems = menu;
+                    document.getElementById("menu").innerHTML = menu.map((item, index) =>
+                        `<div>
+                            <p>${item.name} - $${item.price}</p>
+                            <label>Quantity:</label>
+                            <input type="number" id="qty_${index}" min="1" value="1">
+                            <button onclick="addToOrder(${index})">Add to Order</button>
+                        </div>`
+                    ).join('');
+                })
+                .catch(error => console.error("Fetch Error:", error));
+        }
+
+        let order = [];
+
+        function addToOrder(index) {
+            const quantity = document.getElementById(`qty_${index}`).value;
+            const item = menuItems[index];
+            order.push({ item_id: item.item_id, name: item.name, quantity: parseInt(quantity), price: item.price });
+            updateOrderSummary();
+        }
+
+        function updateOrderSummary() {
+            document.getElementById("order-summary").innerHTML = order.map(item =>
+                `<p>${item.name} - Qty: ${item.quantity} - Total: $${item.quantity * item.price}</p>`
+            ).join('');
+            
+            // Calculate and display total
+            const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            document.getElementById("total-cost").innerText = `Total: $${totalCost.toFixed(2)}`;
+            
+            // Show order options if items are in cart
+            if (order.length > 0) {
+                document.getElementById("order-options").style.display = "block";
+            }
+        }
+
+        function placeOrder() {
+            const orderType = document.querySelector('input[name="order-type"]:checked').value;
+            const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            
+            // If online order, show online payment options
+            if (orderType === "Online") {
+                document.getElementById("online-payment-section").style.display = "block";
+                document.getElementById("dine-in-payment-section").style.display = "none";
+                return; // Don't submit order yet, wait for payment
+            }
+            
+            // For dine-in, show dine-in payment options
+            document.getElementById("dine-in-payment-section").style.display = "block";
+            document.getElementById("online-payment-section").style.display = "none";
+        }
+        
+        function processPayment() {
+            const orderType = document.querySelector('input[name="order-type"]:checked').value;
+            let paymentMethod;
+            
+            if (orderType === "Online") {
+                paymentMethod = document.querySelector('input[name="online-payment-method"]:checked').value;
+            } else {
+                paymentMethod = document.querySelector('input[name="dine-in-payment-method"]:checked').value;
+            }
+            
+            // In a real app, you would integrate with payment gateways here
+            // For now, we'll simulate a successful payment
+            submitOrder(orderType, paymentMethod, "Success");
+        }
+        
+        function submitOrder(orderType, paymentMethod, paymentStatus) {
+            const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            
+            // First create the order
+            fetch('http://localhost:3000/order', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    user_id: 1,
+                    order_type: orderType,
+                    total_cost: totalCost,
+                    items: order
+                })
+            }).then(response => response.json())
+                .then(data => {
+                    // Then process payment
+                    return fetch('http://localhost:3000/payment', {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            order_id: data.order_id,
+                            payment_method: paymentMethod,
+                            payment_status: paymentStatus
+                        })
+                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    localStorage.setItem("order", JSON.stringify({
+                        order_id: data.order_id,
+                        items: order,
+                        total_cost: totalCost,
+                        order_type: orderType,
+                        payment_method: paymentMethod
+                    }));
+                    window.location.href = "order-confirmation.html"; // Redirect to confirmation page
+                })
+                .catch(error => console.error("Order Error:", error));
+        }
+
+    </script>
+</head>
+
+<body onload="fetchMenu()">
+    <a href="admin-login.html" class="admin-btn">Admin Login</a>
+
+    <h1>Restaurant Menu</h1>
+    <div id="menu"></div>
+
+    <h2>Your Order</h2>
+    <div id="order-summary"></div>
+    <div id="total-cost"></div>
+    
+    <div id="order-options" style="display: none;">
+        <h3>Order Type</h3>
+        <div>
+            <input type="radio" id="dine-in" name="order-type" value="Dine-in" checked>
+            <label for="dine-in">Dine-in</label>
+        </div>
+        <div>
+            <input type="radio" id="online" name="order-type" value="Online">
+            <label for="online">Online Order</label>
+        </div>
+        
+        <button onclick="placeOrder()">Place Order</button>
+    </div>
+    
+    <div id="dine-in-payment-section" style="display: none;">
+        <h3>Dine-in Payment Options</h3>
+        <div>
+            <input type="radio" id="cash" name="dine-in-payment-method" value="Cash" checked>
+            <label for="cash">Cash Payment</label>
+        </div>
+        <div>
+            <input type="radio" id="qr-code" name="dine-in-payment-method" value="QR Code">
+            <label for="qr-code">QR Code Payment</label>
+        </div>
+        
+        <button onclick="processPayment()">Process Payment</button>
+    </div>
+    
+    <div id="online-payment-section" style="display: none;">
+        <h3>Online Payment Options</h3>
+        <div>
+            <input type="radio" id="upi" name="online-payment-method" value="UPI" checked>
+            <label for="upi">UPI Payment</label>
+        </div>
+        <div>
+            <input type="radio" id="card" name="online-payment-method" value="Card">
+            <label for="card">Card Payment</label>
+        </div>
+        
+        <button onclick="processPayment()">Process Payment</button>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Admin Login</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        function loginAdmin() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            fetch('http://localhost:3000/admin/login', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      localStorage.setItem("adminToken", data.token);
+                      window.location.href = "admin-dashboard.html"; // Redirect after login
+                  } else {
+                      alert("Login failed! Check username/password.");
+                  }
+              })
+              .catch(error => console.error("Login Error:", error));
+        }
+    </script>
+</head>
+
+<body>
+    <div id="login-container">
+        <h1>Admin Login</h1>
+        <label>Username:</label>
+        <input type="text" id="username" placeholder="Enter username">
+        
+        <label>Password:</label>
+        <input type="password" id="password" placeholder="Enter password">
+        
+        <button onclick="loginAdmin()">Login</button>
+        <p class="error-msg" id="error-message"></p>
+    </div>
+</body>
+
+
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Order Confirmation</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        // Retrieve order details from local storage (saved after placing an order)
+        const order = JSON.parse(localStorage.getItem("order"));
+
+        function displayOrder() {
+            if (!order) {
+                document.getElementById("order-summary").innerHTML = "<p>No order found!</p>";
+                return;
+            }
+
+            document.getElementById("order-id").innerText = "Order ID: " + order.order_id;
+            document.getElementById("order-details").innerHTML = order.items.map(item =>
+                `<p>${item.name} - Qty: ${item.quantity} - Total: $${item.quantity * item.price}</p>`
+            ).join('');
+            document.getElementById("total-cost").innerText = "Total Amount: $" + order.total_cost.toFixed(2);
+            
+            // Display order type
+            if (order.order_type) {
+                document.getElementById("order-type").innerText = "Order Type: " + order.order_type;
+            }
+            
+            // Display payment method if available
+            if (order.payment_method) {
+                let paymentDisplay = order.payment_method;
+                
+                // Add QR code image if QR Code payment was used
+                if (order.payment_method === "QR Code") {
+                    document.getElementById("payment-method").innerHTML = 
+                        `Payment Method: QR Code <div class="qr-code-container">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=RestaurantPaymentDemo" 
+                             alt="QR Code" class="qr-code-img">
+                        </div>`;
+                } else {
+                    document.getElementById("payment-method").innerText = "Payment Method: " + order.payment_method;
+                } 
+            }
+            
+            // Get live order status
+            if (order.order_id) {
+                fetchOrderStatus(order.order_id);
+            }
+        }
+        
+        function fetchOrderStatus(orderId) {
+            fetch(`http://localhost:3000/orders/status/${orderId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("order-status").innerText = "Status: " + data.status;
+                })
+                .catch(error => {
+                    console.error("Error fetching order status:", error);
+                    document.getElementById("order-status").innerText = "Status: Pending";
+                });
+        }
+
+        function goBack() {
+            window.location.href = "index.html"; // Redirect back to menu
+        }
+    </script>
+</head>
+
+<body onload="displayOrder()">
+    <div id="confirmation-container">
+        <h1>Order Confirmation</h1>
+
+        <h2 id="order-id"></h2>
+        <p id="order-type"></p>
+        <p id="payment-method"></p>
+        <div id="order-details"></div>
+
+        <h3 id="total-cost"></h3>
+        <h3 id="order-status"></h3> <!-- Live order status updates -->
+
+        <button onclick="goBack()">Back to Menu</button>
+    </div>
+</body>
+
+</html>

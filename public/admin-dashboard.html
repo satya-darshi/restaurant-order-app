@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        function checkAdminAuth() {
+            const token = localStorage.getItem("adminToken");
+            if (!token) {
+                window.location.href = "admin-login.html"; // Redirect to login
+            }
+        }
+
+
+        function logoutAdmin() {
+            localStorage.removeItem("adminToken");
+            window.location.href = "index.html"; // Redirect after logout
+        }
+
+
+        function fetchMenu() {
+            const token = localStorage.getItem("adminToken");
+            axios.get('http://localhost:3000/menu-items', { headers: { Authorization: token } })
+                .then(response => {
+                    document.getElementById("menu").innerHTML = response.data.map(item =>
+                        `<div style="opacity: ${item.availability ? '1' : '0.5'};">
+                    <p>${item.name} - $${item.price}</p>
+                    <button onclick="updateAvailability(${item.item_id}, false)">Disable</button>
+                    <button onclick="updateAvailability(${item.item_id}, true)">Enable</button>
+                </div>`
+                    ).join('');
+                })
+                .catch(error => console.error("Error fetching menu:", error));
+        }
+
+
+        function updateAvailability(item_id, availability) {
+            axios.put(`http://localhost:3000/menu-items/${item_id}`, { availability })
+                .then(() => fetchMenu()); // Refresh menu after update
+        }
+
+        function fetchOrders() {
+            axios.get('http://localhost:3000/orders')
+                .then(response => {
+                    document.getElementById("orders").innerHTML = response.data.map(order =>
+                        `<div>
+                            <p>Order ID: ${order.order_id}, Type: ${order.order_type}, Status: ${order.status}</p>
+                            <button onclick="updateOrderStatus(${order.order_id}, 'Completed')">Complete</button>
+                            <button onclick="updateOrderStatus(${order.order_id}, 'Cancelled')">Cancel</button>
+                            <button onclick="viewOrderDetails(${order.order_id})">View Details</button>
+                        </div>`
+                    ).join('');
+                });
+        }
+
+        function updateOrderStatus(order_id, status) {
+            axios.put(`http://localhost:3000/orders/${order_id}`, { status })
+                .then(() => fetchOrders()); // Refresh orders after update
+        }
+        
+        function viewOrderDetails(order_id) {
+            // Fetch order items
+            axios.get(`http://localhost:3000/order-items/${order_id}`)
+                .then(response => {
+                    const orderItems = response.data;
+                    
+                    // Fetch payment information
+                    return axios.get(`http://localhost:3000/payments/${order_id}`)
+                        .then(paymentResponse => {
+                            const payments = paymentResponse.data;
+                            
+                            // Display both in the modal
+                            let detailsHtml = '<h3>Order Items</h3>';
+                            
+                            if (orderItems.length === 0) {
+                                detailsHtml += '<p>No items found</p>';
+                            } else {
+                                detailsHtml += orderItems.map(item => 
+                                    `<p>Item ID: ${item.item_id}, Quantity: ${item.quantity}, Total: $${item.total_price}</p>`
+                                ).join('');
+                            }
+                            
+                            detailsHtml += '<h3>Payment Information</h3>';
+                            
+                            if (payments.length === 0) {
+                                detailsHtml += '<p>No payment records found</p>';
+                            } else {
+                                detailsHtml += payments.map(payment => {
+                                    let paymentInfo = `<p>Payment Method: ${payment.payment_method}, Status: ${payment.payment_status}, Date: ${new Date(payment.payment_date).toLocaleString()}</p>`;
+                                    
+                                    // If it's a QR code payment, show a sample QR code
+                                    if (payment.payment_method === 'QR Code') {
+                                        paymentInfo += `<div class="qr-code-mini">
+                                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=PaymentID-${payment.payment_id}" alt="QR Code">
+                                        </div>`;
+                                    }
+                                    
+                                    return paymentInfo;
+                                }).join('');
+                            }
+                            
+                            document.getElementById("order-details-content").innerHTML = detailsHtml;
+                            document.getElementById("order-details-modal").style.display = "block";
+                        });
+                })
+                .catch(error => console.error("Error fetching order details:", error));
+        }
+        
+        function closeModal() {
+            document.getElementById("order-details-modal").style.display = "none";
+        }
+
+        function fetchPayments() {
+            axios.get('http://localhost:3000/payments')
+                .then(response => {
+                    document.getElementById("payments").innerHTML = response.data.map(payment =>
+                        `<p>Order ID: ${payment.order_id}, Method: ${payment.payment_method}, Status: ${payment.payment_status}</p>`
+                    ).join('');
+                });
+        }
+
+        window.onload = () => {
+            checkAdminAuth(); // Check authentication on page load
+            fetchMenu();
+            fetchOrders();
+            fetchPayments();
+        };
+    </script>
+</head>
+
+
+<body>
+    <button class="logout-btn" onclick="logoutAdmin()">Logout</button>
+
+    <div class="admin-section">
+        <h1>Admin Panel</h1>
+
+        <h2>Menu Management</h2>
+        <div id="menu"></div>
+
+        <h2>Order Management</h2>
+        <div id="orders"></div>
+        
+        <!-- Order Details Modal -->
+        <div id="order-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 1000;">
+            <div style="background-color: white; margin: 10% auto; padding: 20px; width: 60%; max-width: 500px;">
+                <span onclick="closeModal()" style="float: right; cursor: pointer; font-weight: bold;">&times;</span>
+                <h2>Order Details</h2>
+                <div id="order-details-content"></div>
+            </div>
+        </div>
+
+        <h2>Payment Records</h2>
+        <div id="payments"></div>
+    </div>
+</body>
+
+
+</html>
