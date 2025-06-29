@@ -8,7 +8,7 @@
         let menuItems = [];
 
         function fetchMenu() {
-            fetch('http://localhost:3000/menu-items/customer')
+            fetch('/menu-items/customer')
                 .then(response => response.json())
                 .then(menu => {
                     menuItems = menu;
@@ -83,7 +83,7 @@
             const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
             
             // First create the order
-            fetch('http://localhost:3000/order', {
+            fetch('/order', {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -95,7 +95,7 @@
             }).then(response => response.json())
                 .then(data => {
                     // Then process payment
-                    return fetch('http://localhost:3000/payment', {
+                    return fetch('/payment', {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({

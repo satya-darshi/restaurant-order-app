@@ -48,7 +48,7 @@
         }
         
         function fetchOrderStatus(orderId) {
-            fetch(`http://localhost:3000/orders/status/${orderId}`)
+            fetch(`/orders/status/${orderId}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById("order-status").innerText = "Status: " + data.status;
