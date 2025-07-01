@@ -154,7 +154,6 @@ label {
 
 .menu-panel {
     flex: 2;
-    background-color: white;
     padding: 15px;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -162,7 +161,6 @@ label {
 
 .cart-panel {
     flex: 1;
-    background-color: white;
     padding: 15px;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -276,7 +274,7 @@ td img {
   left: 0;
   z-index: 999;
   width: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -296,7 +294,7 @@ td img {
 }
 .navbar ul li a,
 .navbar .nav-right a {
-  color: white;
+  color: #964B00;
   text-decoration: none;
   font-weight: bold;
 }
@@ -311,5 +309,5 @@ td img {
   justify-content: center;
 }
 .navbar ul li a.active {
-  border-bottom: 2px solid #fff;
+  border-bottom: 2px solid #964B00;
 }
