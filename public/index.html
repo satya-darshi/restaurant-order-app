@@ -5,173 +5,224 @@
     <title>Restaurant Menu</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        let menuItems = [];
+        let cart = [];
+        const TAX_RATE = 0.10;
 
         function fetchMenu() {
             fetch('/menu-items/customer')
-                .then(response => response.json())
+                .then(res => res.json())
                 .then(menu => {
-                    menuItems = menu;
-                    document.getElementById("menu").innerHTML = menu.map((item, index) =>
-                        `<div>
-                            <p>${item.name} - $${item.price}</p>
-                            <label>Quantity:</label>
-                            <input type="number" id="qty_${index}" min="1" value="1">
-                            <button onclick="addToOrder(${index})">Add to Order</button>
-                        </div>`
-                    ).join('');
+                    const menuTable = document.getElementById("menu");
+                    menuTable.innerHTML = '';
+
+                    menu.forEach(item => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>${item.name}</td>
+                            <td style="text-align: center; width: 60px;">
+                                ${
+                                    item.category === 'Veg'
+                                    ? '<img src="/images/veg.png" alt="Veg" width="16" title="Vegetarian">'
+                                    : item.category === 'Non-Veg'
+                                    ? '<img src="/images/nonveg.png" alt="Non-Veg" width="16" title="Non-Vegetarian">'
+                                    : '-'
+                                }
+                            </td>
+                            <td>${item.subcategory || '-'}</td>
+                            <td>₹${Number(item.price).toFixed(2)}</td>
+                            <td><input type="number" id="qty_${item.item_id}" value="1" min="1" style="width: 60px;"></td>
+                            <td><button onclick="addToOrder(${item.item_id}, '${item.name.replace(/'/g, "\\'")}', ${Number(item.price)})">Add</button></td>
+                        `;
+                        menuTable.appendChild(tr);
+                    });
                 })
-                .catch(error => console.error("Fetch Error:", error));
+                .catch(err => console.error('Failed to fetch menu:', err));
         }
 
-        let order = [];
+        function addToOrder(id, name, price) {
+            const qtyInput = document.getElementById(`qty_${id}`);
+            const quantity = parseInt(qtyInput.value) || 1;
 
-        function addToOrder(index) {
-            const quantity = document.getElementById(`qty_${index}`).value;
-            const item = menuItems[index];
-            order.push({ item_id: item.item_id, name: item.name, quantity: parseInt(quantity), price: item.price });
-            updateOrderSummary();
-        }
-
-        function updateOrderSummary() {
-            document.getElementById("order-summary").innerHTML = order.map(item =>
-                `<p>${item.name} - Qty: ${item.quantity} - Total: $${item.quantity * item.price}</p>`
-            ).join('');
-            
-            // Calculate and display total
-            const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-            document.getElementById("total-cost").innerText = `Total: $${totalCost.toFixed(2)}`;
-            
-            // Show order options if items are in cart
-            if (order.length > 0) {
-                document.getElementById("order-options").style.display = "block";
+            const existing = cart.find(i => i.item_id === id);
+            if (existing) {
+                existing.quantity += quantity;
+            } else {
+                cart.push({ item_id: id, name, price, quantity });
             }
+
+            renderCart();
+        }
+
+        function renderCart() {
+            const tbody = document.getElementById("order-summary");
+            const totalItems = document.getElementById("total-items");
+            const totalItemsSummary = document.getElementById("total-items-summary");
+            const subtotal = document.getElementById("subtotal");
+            const tax = document.getElementById("tax");
+            const total = document.getElementById("total-cost");
+
+            tbody.innerHTML = '';
+            let subtotalValue = 0;
+
+            cart.forEach(item => {
+                const lineTotal = item.price * item.quantity;
+                subtotalValue += lineTotal;
+
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${item.name}</td>
+                    <td>
+                        <button onclick="changeQty(${item.item_id}, -1)">−</button>
+                        ${item.quantity}
+                        <button onclick="changeQty(${item.item_id}, 1)">＋</button>
+                    </td>
+                    <td>₹${lineTotal.toFixed(2)}</td>
+                    <td><button onclick="removeItem(${item.item_id})">🗑</button></td>
+                    `;
+                tbody.appendChild(row);
+            });
+
+            const taxValue = subtotalValue * TAX_RATE;
+            const totalValue = subtotalValue + taxValue;
+
+            const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
+            totalItems.innerText = totalQty;
+            totalItemsSummary.innerText = totalQty;
+            subtotal.innerText = `₹${subtotalValue.toFixed(2)}`;
+            tax.innerText = `₹${taxValue.toFixed(2)}`;
+            total.innerText = `₹${totalValue.toFixed(2)}`;
+        }
+
+        function proceedToPayment() {
+            if (cart.length === 0) {
+                alert("Your cart is empty.");
+                return;
+            }
+
+            // save cart + order type in localStorage
+            localStorage.setItem("pendingCart", JSON.stringify({
+                cart,
+                order_type: document.querySelector('input[name="order-type"]:checked').value
+            }));
+
+            // navigate to the payment page
+            window.location.href = "payment.html";
         }
 
         function placeOrder() {
-            const orderType = document.querySelector('input[name="order-type"]:checked').value;
-            const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-            
-            // If online order, show online payment options
-            if (orderType === "Online") {
-                document.getElementById("online-payment-section").style.display = "block";
-                document.getElementById("dine-in-payment-section").style.display = "none";
-                return; // Don't submit order yet, wait for payment
+            if (cart.length === 0) {
+                alert('Your cart is empty.');
+                return;
             }
-            
-            // For dine-in, show dine-in payment options
-            document.getElementById("dine-in-payment-section").style.display = "block";
-            document.getElementById("online-payment-section").style.display = "none";
-        }
-        
-        function processPayment() {
-            const orderType = document.querySelector('input[name="order-type"]:checked').value;
-            let paymentMethod;
-            
-            if (orderType === "Online") {
-                paymentMethod = document.querySelector('input[name="online-payment-method"]:checked').value;
-            } else {
-                paymentMethod = document.querySelector('input[name="dine-in-payment-method"]:checked').value;
-            }
-            
-            // In a real app, you would integrate with payment gateways here
-            // For now, we'll simulate a successful payment
-            submitOrder(orderType, paymentMethod, "Success");
-        }
-        
-        function submitOrder(orderType, paymentMethod, paymentStatus) {
-            const totalCost = order.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-            
-            // First create the order
+
+            const order_type = document.querySelector('input[name="order-type"]:checked').value;
+
+            const orderData = {
+                order_type,
+                items: cart.map(item => ({
+                item_id: item.item_id,
+                quantity: item.quantity
+                }))
+            };
+
             fetch('/order', {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    user_id: 1,
-                    order_type: orderType,
-                    total_cost: totalCost,
-                    items: order
-                })
-            }).then(response => response.json())
-                .then(data => {
-                    // Then process payment
-                    return fetch('/payment', {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            order_id: data.order_id,
-                            payment_method: paymentMethod,
-                            payment_status: paymentStatus
-                        })
-                    });
-                })
-                .then(response => response.json())
-                .then(data => {
-                    localStorage.setItem("order", JSON.stringify({
-                        order_id: data.order_id,
-                        items: order,
-                        total_cost: totalCost,
-                        order_type: orderType,
-                        payment_method: paymentMethod
-                    }));
-                    window.location.href = "order-confirmation.html"; // Redirect to confirmation page
-                })
-                .catch(error => console.error("Order Error:", error));
+                method: 'POST',
+                headers: {
+                'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(orderData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                alert(`✅ ${order_type} order placed successfully!`);
+                cart = [];
+                renderCart();
+                } else {
+                alert('❌ Order failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Error placing order:', err);
+                alert('⚠️ Network or server error.');
+            });
+            }
+
+
+        function changeQty(id, delta) {
+            const item = cart.find(i => i.item_id === id);
+            if (!item) return;
+            item.quantity = Math.max(1, item.quantity + delta);
+            renderCart();
         }
 
+        function removeItem(id) {
+            cart = cart.filter(i => i.item_id !== id);
+            renderCart();
+        }
+
+        window.addEventListener('DOMContentLoaded', fetchMenu);
     </script>
+
 </head>
 
 <body onload="fetchMenu()">
     <a href="admin-login.html" class="admin-btn">Admin Login</a>
 
-    <h1>Restaurant Menu</h1>
-    <div id="menu"></div>
+    <div class="main-container">
+        <!-- Left Side: Menu -->
+        <div class="menu-panel">
+            <input type="text" placeholder="Search..." id="search-box">
+            <table id="menu-table">
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>Sub Category</th>
+                        <th>Price</th>
+                        <th>Qty</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="menu"></tbody>
+            </table>
+        </div>
 
-    <h2>Your Order</h2>
-    <div id="order-summary"></div>
-    <div id="total-cost"></div>
-    
-    <div id="order-options" style="display: none;">
-        <h3>Order Type</h3>
-        <div>
-            <input type="radio" id="dine-in" name="order-type" value="Dine-in" checked>
-            <label for="dine-in">Dine-in</label>
+        <!-- Right Side: Cart -->
+        <div class="cart-panel">
+            <h3>Total items: <span id="total-items">0</span></h3>
+            <table id="cart-table">
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="order-summary"></tbody>
+            </table>
+            <div class="order-type-selector">
+                <label>Select Order Type:</label>
+                <div class="order-type-options">
+                    <label class="order-option">
+                    <input type="radio" name="order-type" value="Dine-in" checked>
+                    <span>🍽️ Dine-in</span>
+                    </label>
+                    <label class="order-option">
+                    <input type="radio" name="order-type" value="Online">
+                    <span>🛵 Online</span>
+                    </label>
+                </div>
+            </div>
+            <div class="checkout-box">
+                <p>Total items: <span id="total-items-summary">0</span></p>
+                <p>Subtotal: <span id="subtotal">$0.00</span></p>
+                <p>Tax: <span id="tax">$0.00</span></p>
+                <h3>Total: <span id="total-cost">$0.00</span></h3>
+                <button onclick="proceedToPayment()">Checkout</button>
+            </div>
         </div>
-        <div>
-            <input type="radio" id="online" name="order-type" value="Online">
-            <label for="online">Online Order</label>
-        </div>
-        
-        <button onclick="placeOrder()">Place Order</button>
-    </div>
-    
-    <div id="dine-in-payment-section" style="display: none;">
-        <h3>Dine-in Payment Options</h3>
-        <div>
-            <input type="radio" id="cash" name="dine-in-payment-method" value="Cash" checked>
-            <label for="cash">Cash Payment</label>
-        </div>
-        <div>
-            <input type="radio" id="qr-code" name="dine-in-payment-method" value="QR Code">
-            <label for="qr-code">QR Code Payment</label>
-        </div>
-        
-        <button onclick="processPayment()">Process Payment</button>
-    </div>
-    
-    <div id="online-payment-section" style="display: none;">
-        <h3>Online Payment Options</h3>
-        <div>
-            <input type="radio" id="upi" name="online-payment-method" value="UPI" checked>
-            <label for="upi">UPI Payment</label>
-        </div>
-        <div>
-            <input type="radio" id="card" name="online-payment-method" value="Card">
-            <label for="card">Card Payment</label>
-        </div>
-        
-        <button onclick="processPayment()">Process Payment</button>
     </div>
 </body>
 

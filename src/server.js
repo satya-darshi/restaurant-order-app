@@ -77,7 +77,7 @@ app.get('/menu-items', (req, res) => {
 });
 
 app.get('/menu-items/customer', (req, res) => {
-    db.query("SELECT * FROM menu_items WHERE availability = TRUE", (err, results) => {
+    db.query("SELECT item_id, name, category, subcategory, price + 0 AS price FROM menu_items WHERE availability = 1", (err, results) => {
         if (err) res.status(500).send(err);
         else res.json(results);
     });
@@ -85,22 +85,69 @@ app.get('/menu-items/customer', (req, res) => {
 
 // Place an Order
 app.post('/order', (req, res) => {
-    const { user_id, order_type, total_cost, items } = req.body;
+  const { order_type, items } = req.body;
 
-    db.query("INSERT INTO orders (user_id, order_type, total_cost, status) VALUES (?, ?, ?, 'Pending')",
-        [user_id, order_type, total_cost], (err, result) => {
-            if (err) return res.status(500).send(err);
-            const orderId = result.insertId;
+  if (!order_type || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, error: 'Invalid order data' });
+  }
 
-            // Add items to the order
-            const orderItemsQuery = "INSERT INTO order_items (order_id, item_id, quantity, total_price) VALUES ?";
-            const orderItemsValues = items.map(item => [orderId, item.item_id, item.quantity, item.quantity * item.price]);
+  const user_id = 1; // default user for now
+  const status = 'Pending';
 
-            db.query(orderItemsQuery, [orderItemsValues], (err) => {
-                if (err) return res.status(500).send(err);
-                res.json({ order_id: orderId });
-            });
+  // Step 1: Get latest prices from DB
+  const itemIds = items.map(i => i.item_id);
+  const placeholders = itemIds.map(() => '?').join(',');
+
+  db.query(
+    `SELECT item_id, price FROM menu_items WHERE item_id IN (${placeholders})`,
+    itemIds,
+    (err, priceRows) => {
+      if (err) return res.status(500).json({ success: false, error: 'Price lookup failed' });
+
+      // Step 2: Calculate total cost
+      const prices = {};
+      priceRows.forEach(row => prices[row.item_id] = parseFloat(row.price));
+
+      let total_cost = 0;
+      const orderItems = [];
+
+      items.forEach(item => {
+        const price = prices[item.item_id] || 0;
+        const total_price = price * item.quantity;
+        total_cost += total_price;
+
+        orderItems.push({
+          item_id: item.item_id,
+          quantity: item.quantity,
+          total_price
         });
+      });
+
+      // Step 3: Insert into orders
+      db.query(
+        'INSERT INTO orders (user_id, order_type, total_cost, status) VALUES (?, ?, ?, ?)',
+        [user_id, order_type, total_cost.toFixed(2), status],
+        (err2, result) => {
+          if (err2) return res.status(500).json({ success: false, error: 'Order insert failed' });
+
+          const order_id = result.insertId;
+
+          // Step 4: Insert into order_items
+          const values = orderItems.map(item => [order_id, item.item_id, item.quantity, item.total_price.toFixed(2)]);
+
+          db.query(
+            'INSERT INTO order_items (order_id, item_id, quantity, total_price) VALUES ?',
+            [values],
+            (err3) => {
+              if (err3) return res.status(500).json({ success: false, error: 'Order items failed' });
+
+              res.json({ success: true, order_id });
+            }
+          );
+        }
+      );
+    }
+  );
 });
 
 // Process Payment
@@ -144,13 +191,27 @@ app.get('/orders/:user_id', (req, res) => {
     });
 });
 
-// Get Order Items
-app.get('/order-items/:order_id', (req, res) => {
-    const { order_id } = req.params;
-    db.query("SELECT * FROM order_items WHERE order_id = ?", [order_id], (err, results) => {
-        if (err) res.status(500).send(err);
-        else res.json(results);
-    });
+// Admin: Get detailed order items with menu names
+app.get('/admin/order-items/:order_id', (req, res) => {
+  const { order_id } = req.params;
+
+  const sql = `
+    SELECT 
+      mi.name, 
+      oi.quantity, 
+      oi.total_price
+    FROM order_items oi
+    JOIN menu_items mi ON oi.item_id = mi.item_id
+    WHERE oi.order_id = ?
+  `;
+
+  db.query(sql, [order_id], (err, results) => {
+    if (err) {
+      console.error('Error fetching order items:', err);
+      return res.status(500).json({ error: 'DB error' });
+    }
+    res.json(results);
+  });
 });
 
 // Update Menu Item Availability

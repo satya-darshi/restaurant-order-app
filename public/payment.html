@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Payment Processing</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .pay-option {display:flex;align-items:center;gap:8px;margin:8px 0;}
+    .qr-box {display:none;margin:12px 0;}
+    .qr-box img {width:150px;height:150px;border:1px solid #ddd;padding:4px;}
+  </style>
+  <script>
+    let pending = JSON.parse(localStorage.getItem("pendingCart") || "{}");
+
+    function showSummary() {
+      if (!pending.cart || pending.cart.length === 0) {
+        document.getElementById("summary").innerHTML = "<p>No cart found.</p>";
+        return;
+      }
+
+      const list = pending.cart.map(
+        i => `<tr><td>${i.name}</td><td>${i.quantity}</td><td>₹${(i.price * i.quantity).toFixed(2)}</td></tr>`
+      ).join("");
+
+      const subtotal = pending.cart.reduce((s, i)=>s+i.price*i.quantity,0);
+      const tax = subtotal * 0.10;
+      const total = subtotal + tax;
+
+      document.getElementById("order-rows").innerHTML = list;
+      document.getElementById("totals").innerHTML = `
+        <tr><td colspan="2">Subtotal</td><td>₹${subtotal.toFixed(2)}</td></tr>
+        <tr><td colspan="2">Tax (10%)</td><td>₹${tax.toFixed(2)}</td></tr>
+        <tr><td colspan="2"><strong>Total</strong></td><td><strong>₹${total.toFixed(2)}</strong></td></tr>`;
+    }
+
+    function selectPay(method) {
+      document.querySelectorAll(".qr-box").forEach(b => b.style.display="none");
+      document.getElementById("payBtn").dataset.method = method;
+      if (method === "UPI") document.getElementById("upiBox").style.display="block";
+    }
+
+    function processAndPlace() {
+      const method = document.getElementById("payBtn").dataset.method;
+      if (!method) return alert("Select a payment method.");
+
+      // 1) create order
+      fetch("/order", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          order_type: pending.order_type,
+          items: pending.cart.map(({item_id,quantity})=>({item_id,quantity}))
+        })
+      })
+      .then(r=>r.json())
+      .then(orderRes=>{
+        if (!orderRes.success) throw "Order failed";
+
+        // 2) simulate payment success
+        return fetch("/payment",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            order_id:orderRes.order_id,
+            payment_method:method,
+            payment_status:"Success"
+          })
+        }).then(r=>r.json())
+          .then(_=>{
+            // 3) stash order for confirmation page
+            localStorage.setItem("order", JSON.stringify({
+              order_id: orderRes.order_id,
+              items: pending.cart,
+              total_cost: pending.cart.reduce((s,i)=>s+i.price*i.quantity,0)*(1+0.10),
+              order_type: pending.order_type,
+              payment_method: method
+            }));
+            // 4) cleanup + redirect
+            localStorage.removeItem("pendingCart");
+            window.location.href = "order-confirmation.html";
+          });
+      })
+      .catch(err=>{
+        console.error(err);
+        alert("Payment or order failed.");
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", ()=>{
+      showSummary();
+      // default selection = Cash
+      selectPay("Cash");
+    });
+  </script>
+</head>
+<body>
+  <h1>Payment Processing</h1>
+
+  <h2>Order Summary</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
+    <tbody id="order-rows"></tbody>
+    <tbody id="totals"></tbody>
+  </table>
+
+  <h2>Select Payment Method</h2>
+  <div class="pay-option"><input type="radio" name="pay" checked onclick="selectPay('Cash')">Cash on Counter</div>
+  <div class="pay-option"><input type="radio" name="pay" onclick="selectPay('UPI')">UPI / QR Code</div>
+  <div id="upiBox" class="qr-box">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=DemoUPI123456" alt="UPI QR">
+    <p>Scan to pay (demo)</p>
+  </div>
+  <div class="pay-option"><input type="radio" name="pay" onclick="selectPay('Card')">Credit / Debit Card</div>
+
+  <button id="payBtn" data-method="" onclick="processAndPlace()">Pay &amp; Place Order</button>
+</body>
+</html>

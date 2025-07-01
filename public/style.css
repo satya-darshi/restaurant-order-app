@@ -16,6 +16,7 @@ body {
     padding: 20px;
     background-color: #f5f5f5;
     color: #333;
+    position: relative;
 }
 
 h1, h2, h3 {
@@ -74,15 +75,17 @@ input[type="number"] {
 
 /* Admin Button */
 .admin-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    text-decoration: none;
-    background-color: #2c3e50;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 4px;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background:#1f2937;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:5px;
+  text-decoration:none;
+  font-weight:600;
 }
+
 
 /* Login Container */
 #login-container {
@@ -141,4 +144,127 @@ input[type="radio"] {
 
 label {
     margin-right: 15px;
+}
+
+.main-container {
+    display: flex;
+    gap: 20px;
+}
+
+.menu-panel {
+    flex: 2;
+    background-color: white;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.cart-panel {
+    flex: 1;
+    background-color: white;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th, td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+}
+
+input[type="number"] {
+    width: 50px;
+    text-align: center;
+}
+
+.checkout-box {
+    margin-top: 20px;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.cart-panel h3 {
+    margin-top: 0;
+}
+
+.order-type-selector {
+    margin-top: 15px;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.order-type-options {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.order-option {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  background: #f9f9f9;
+  transition: all 0.2s ease;
+}
+
+.order-option:hover {
+  background-color: #f0f0f0;
+}
+
+/* Hide the default radio circle */
+.order-option input[type="radio"] {
+  display: none;
+}
+
+/* When radio is selected: style the label */
+.order-option input[type="radio"]:checked + span {
+  background-color: #d4edda;
+  color: #155724;
+  font-weight: bold;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.details-box {
+  background-color: #f9f9f9;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.order-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.order-items-table th,
+.order-items-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+.order-items-table th {
+  background-color: #f0f0f0;
+}
+
+td img {
+  vertical-align: middle;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
 }
