@@ -5,9 +5,70 @@
   <title>Payment Processing</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    .pay-option {display:flex;align-items:center;gap:8px;margin:8px 0;}
-    .qr-box {display:none;margin:12px 0;}
-    .qr-box img {width:150px;height:150px;border:1px solid #ddd;padding:4px;}
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f2f2f2;
+      margin: 0;
+    }
+    .payment-container {
+      background: #fff;
+      padding: 24px 32px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 500px;
+      width: 100%;
+      font-family: Arial, sans-serif;
+    }
+    .payment-container h1, .payment-container h2 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+    .pay-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .qr-box {
+      display: none;
+      margin: 12px 0;
+      text-align: center;
+    }
+    .qr-box img {
+      width: 150px;
+      height: 150px;
+      border: 1px solid #ddd;
+      padding: 4px;
+    }
+    #payBtn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #payBtn:hover {
+      background-color: #45a049;
+    }
   </style>
   <script>
     let pending = JSON.parse(localStorage.getItem("pendingCart") || "{}");
@@ -43,7 +104,6 @@
       const method = document.getElementById("payBtn").dataset.method;
       if (!method) return alert("Select a payment method.");
 
-      // 1) create order
       fetch("/order", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -56,7 +116,6 @@
       .then(orderRes=>{
         if (!orderRes.success) throw "Order failed";
 
-        // 2) simulate payment success
         return fetch("/payment",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -67,7 +126,6 @@
           })
         }).then(r=>r.json())
           .then(_=>{
-            // 3) stash order for confirmation page
             localStorage.setItem("order", JSON.stringify({
               order_id: orderRes.order_id,
               items: pending.cart,
@@ -75,7 +133,6 @@
               order_type: pending.order_type,
               payment_method: method
             }));
-            // 4) cleanup + redirect
             localStorage.removeItem("pendingCart");
             window.location.href = "order-confirmation.html";
           });
@@ -88,30 +145,30 @@
 
     window.addEventListener("DOMContentLoaded", ()=>{
       showSummary();
-      // default selection = Cash
       selectPay("Cash");
     });
   </script>
 </head>
 <body>
-  <h1>Payment Processing</h1>
+  <div class="payment-container">
+    <h1>Payment</h1>
+    <h2>Order Summary</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
+      <tbody id="order-rows"></tbody>
+      <tbody id="totals"></tbody>
+    </table>
 
-  <h2>Order Summary</h2>
-  <table>
-    <thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
-    <tbody id="order-rows"></tbody>
-    <tbody id="totals"></tbody>
-  </table>
+    <h2>Select Payment Method</h2>
+    <div class="pay-option"><input type="radio" name="pay" checked onclick="selectPay('Cash')">Cash on Counter</div>
+    <div class="pay-option"><input type="radio" name="pay" onclick="selectPay('UPI')">UPI / QR Code</div>
+    <div id="upiBox" class="qr-box">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=DemoUPI123456" alt="UPI QR">
+      <p>Scan to pay (demo)</p>
+    </div>
+    <div class="pay-option"><input type="radio" name="pay" onclick="selectPay('Card')">Credit / Debit Card</div>
 
-  <h2>Select Payment Method</h2>
-  <div class="pay-option"><input type="radio" name="pay" checked onclick="selectPay('Cash')">Cash on Counter</div>
-  <div class="pay-option"><input type="radio" name="pay" onclick="selectPay('UPI')">UPI / QR Code</div>
-  <div id="upiBox" class="qr-box">
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=DemoUPI123456" alt="UPI QR">
-    <p>Scan to pay (demo)</p>
+    <button id="payBtn" data-method="" onclick="processAndPlace()">Pay &amp; Place Order</button>
   </div>
-  <div class="pay-option"><input type="radio" name="pay" onclick="selectPay('Card')">Credit / Debit Card</div>
-
-  <button id="payBtn" data-method="" onclick="processAndPlace()">Pay &amp; Place Order</button>
 </body>
 </html>

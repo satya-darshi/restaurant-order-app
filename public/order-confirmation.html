@@ -1,84 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <title>Order Confirmation</title>
-    <link rel="stylesheet" href="style.css">
-    <script>
-        // Retrieve order details from local storage (saved after placing an order)
-        const order = JSON.parse(localStorage.getItem("order"));
+  <meta charset="UTF-8">
+  <title>Order Confirmation</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f2f2f2;
+      margin: 0;
+    }
+    .confirmation-container {
+      background: #fff;
+      padding: 24px 32px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 500px;
+      width: 100%;
+      font-family: Arial, sans-serif;
+    }
+    .confirmation-container h1, .confirmation-container h2 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+    .qr-box {
+      text-align: center;
+      margin: 16px 0;
+    }
+    .qr-box img {
+      width: 150px;
+      height: 150px;
+      border: 1px solid #ddd;
+      padding: 4px;
+    }
+  </style>
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const order = JSON.parse(localStorage.getItem("order") || "null");
+      if (!order) return;
 
-        function displayOrder() {
-            if (!order) {
-                document.getElementById("order-summary").innerHTML = "<p>No order found!</p>";
-                return;
-            }
+      document.getElementById("orderId").textContent = order.order_id;
+      document.getElementById("orderType").textContent = order.order_type;
+      document.getElementById("paymentMethod").textContent = order.payment_method;
+      document.getElementById("totalCost").textContent = "₹" + Number(order.total_cost).toFixed(2);
 
-            document.getElementById("order-id").innerText = "Order ID: " + order.order_id;
-            document.getElementById("order-details").innerHTML = order.items.map(item =>
-                `<p>${item.name} - Qty: ${item.quantity} - Total: $${item.quantity * item.price}</p>`
-            ).join('');
-            document.getElementById("total-cost").innerText = "Total Amount: $" + order.total_cost.toFixed(2);
-            
-            // Display order type
-            if (order.order_type) {
-                document.getElementById("order-type").innerText = "Order Type: " + order.order_type;
-            }
-            
-            // Display payment method if available
-            if (order.payment_method) {
-                let paymentDisplay = order.payment_method;
-                
-                // Add QR code image if QR Code payment was used
-                if (order.payment_method === "QR Code") {
-                    document.getElementById("payment-method").innerHTML = 
-                        `Payment Method: QR Code <div class="qr-code-container">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=RestaurantPaymentDemo" 
-                             alt="QR Code" class="qr-code-img">
-                        </div>`;
-                } else {
-                    document.getElementById("payment-method").innerText = "Payment Method: " + order.payment_method;
-                } 
-            }
-            
-            // Get live order status
-            if (order.order_id) {
-                fetchOrderStatus(order.order_id);
-            }
-        }
-        
-        function fetchOrderStatus(orderId) {
-            fetch(`/orders/status/${orderId}`)
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById("order-status").innerText = "Status: " + data.status;
-                })
-                .catch(error => {
-                    console.error("Error fetching order status:", error);
-                    document.getElementById("order-status").innerText = "Status: Pending";
-                });
-        }
+      const itemRows = order.items.map(i =>
+        `<tr><td>${i.name}</td><td>${i.quantity}</td><td>₹${(i.price * i.quantity).toFixed(2)}</td></tr>`
+      ).join("");
+      document.getElementById("orderItems").innerHTML = itemRows;
 
-        function goBack() {
-            window.location.href = "index.html"; // Redirect back to menu
-        }
-    </script>
+      if (order.payment_method === "UPI") {
+        document.getElementById("qrDisplay").style.display = "block";
+      }
+    });
+  </script>
 </head>
+<body>
+  <div class="confirmation-container">
+    <h1>Order Confirmed ✅</h1>
+    <h2>Thank you for your order!</h2>
 
-<body onload="displayOrder()">
-    <div id="confirmation-container">
-        <h1>Order Confirmation</h1>
+    <table>
+      <tr><td><strong>Order ID</strong></td><td id="orderId"></td></tr>
+      <tr><td><strong>Order Type</strong></td><td id="orderType"></td></tr>
+      <tr><td><strong>Payment Method</strong></td><td id="paymentMethod"></td></tr>
+      <tr><td><strong>Total Cost</strong></td><td id="totalCost"></td></tr>
+    </table>
 
-        <h2 id="order-id"></h2>
-        <p id="order-type"></p>
-        <p id="payment-method"></p>
-        <div id="order-details"></div>
+    <h2>Items</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
+      <tbody id="orderItems"></tbody>
+    </table>
 
-        <h3 id="total-cost"></h3>
-        <h3 id="order-status"></h3> <!-- Live order status updates -->
-
-        <button onclick="goBack()">Back to Menu</button>
+    <div id="qrDisplay" class="qr-box" style="display:none">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=DemoUPI123456" alt="UPI QR">
+      <p>Show this at the counter if paid via UPI</p>
     </div>
+  </div>
 </body>
-
 </html>
